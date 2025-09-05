@@ -35,11 +35,6 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
       setIsInitializing(true);
       setError(null);
       
-      // Stop existing stream if any
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
@@ -54,16 +49,29 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         
-        videoRef.current.onloadedmetadata = () => {
+        // Add multiple event listeners to ensure we catch when video is ready
+        const video = videoRef.current;
+        
+        const handleVideoReady = () => {
+          console.log('Video metadata loaded, camera ready');
           setIsInitializing(false);
         };
+        
+        video.onloadedmetadata = handleVideoReady;
+        video.oncanplay = handleVideoReady;
+        
+        // Fallback timeout in case events don't fire
+        setTimeout(() => {
+          console.log('Camera initialization timeout, proceeding anyway');
+          setIsInitializing(false);
+        }, 3000);
       }
     } catch (err) {
       console.error('Camera access denied:', err);
       setError('Camera access is required to scan tickets. Please allow camera permission.');
       setIsInitializing(false);
     }
-  }, [stream]);
+  }, []);
 
   const initializeOCR = useCallback(async () => {
     try {
@@ -165,14 +173,20 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
     initializeOCR();
     
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
       if (scanIntervalRef.current) {
         clearInterval(scanIntervalRef.current);
       }
     };
-  }, [startCamera, initializeOCR, stream]);
+  }, [startCamera, initializeOCR]);
+
+  // Cleanup stream when component unmounts
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   if (error) {
     return (
