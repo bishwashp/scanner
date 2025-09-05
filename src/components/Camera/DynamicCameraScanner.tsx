@@ -47,18 +47,33 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
       setHasPermission(true);
       
       if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+        const video = videoRef.current;
+        video.srcObject = mediaStream;
+        
+        console.log('Setting video srcObject:', mediaStream);
+        console.log('Video element:', video);
         
         // Add multiple event listeners to ensure we catch when video is ready
-        const video = videoRef.current;
-        
         const handleVideoReady = () => {
           console.log('Video metadata loaded, camera ready');
+          console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+          setIsInitializing(false);
+        };
+        
+        const handleVideoError = (e: any) => {
+          console.error('Video error:', e);
+          setError('Video playback error');
           setIsInitializing(false);
         };
         
         video.onloadedmetadata = handleVideoReady;
         video.oncanplay = handleVideoReady;
+        video.onerror = handleVideoError;
+        
+        // Force play the video
+        video.play().catch((err) => {
+          console.error('Video play error:', err);
+        });
         
         // Fallback timeout in case events don't fire
         setTimeout(() => {
@@ -247,8 +262,17 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
             autoPlay
             playsInline
             muted
+            webkit-playsinline="true"
             className="w-full h-64 md:h-80 object-cover"
+            style={{ backgroundColor: '#000' }}
           />
+          
+          {/* Debug indicator */}
+          {hasPermission && !isInitializing && (
+            <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-xs">
+              Camera Active
+            </div>
+          )}
           
           {/* Scanning Guidelines */}
           <div className="absolute inset-0 pointer-events-none">
