@@ -49,35 +49,33 @@ function App() {
     }));
   };
 
-  const handleNumbersSubmitted = (ticket: PowerballTicket) => {
-    // Calculate if the ticket is a winner
-    if (appState.latestDraw) {
-      const prizeCategory = calculatePrize(
-        ticket.numbers,
-        appState.latestDraw.winningNumbers,
-        appState.latestDraw.powerPlayMultiplier
-      );
-      
-      const updatedTicket = {
-        ...ticket,
-        isWinner: prizeCategory !== null,
-        prizeCategory: prizeCategory || undefined,
-        prizeAmount: prizeCategory?.finalAmount || 0
-      };
-      
-      setAppState(prev => ({ 
-        ...prev, 
-        currentStep: 'results',
-        tickets: [...prev.tickets, updatedTicket]
-      }));
-    } else {
-      // Fallback if no latest draw data
-      setAppState(prev => ({ 
-        ...prev, 
-        currentStep: 'results',
-        tickets: [...prev.tickets, ticket]
-      }));
-    }
+  const handleNumbersSubmitted = (tickets: PowerballTicket[]) => {
+    // Calculate if each ticket is a winner
+    const processedTickets = tickets.map(ticket => {
+      if (appState.latestDraw) {
+        const prizeCategory = calculatePrize(
+          ticket.numbers,
+          appState.latestDraw.winningNumbers,
+          appState.latestDraw.powerPlayMultiplier
+        );
+        
+        return {
+          ...ticket,
+          isWinner: prizeCategory !== null,
+          prizeCategory: prizeCategory || undefined,
+          prizeAmount: prizeCategory?.finalAmount || 0
+        };
+      } else {
+        // Fallback if no latest draw data
+        return ticket;
+      }
+    });
+    
+    setAppState(prev => ({ 
+      ...prev, 
+      currentStep: 'results',
+      tickets: [...prev.tickets, ...processedTickets]
+    }));
   };
 
   const handleScanAnother = () => {
@@ -127,7 +125,7 @@ function App() {
       case 'results':
         return (
           <ResultsDisplay 
-            ticket={appState.tickets[appState.tickets.length - 1]}
+            tickets={appState.tickets.slice(-5)} // Show last 5 tickets (A, B, C, D, E)
             latestDraw={appState.latestDraw}
             onScanAnother={handleScanAnother}
             onBack={handleBackToLanding}

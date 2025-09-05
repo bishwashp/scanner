@@ -5,29 +5,31 @@ import WinningNumbers from './WinningNumbers';
 import PrizeCategoryComponent from './PrizeCategory';
 
 interface ResultsDisplayProps {
-  ticket: PowerballTicket;
+  tickets: PowerballTicket[];
   latestDraw?: PowerballDraw;
   onScanAnother: () => void;
   onBack: () => void;
 }
 
 const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ 
-  ticket, 
+  tickets, 
   latestDraw, 
   onScanAnother, 
   onBack 
 }) => {
-  const isWinner = ticket.isWinner;
-  const prizeCategory = ticket.prizeCategory;
+  // Calculate overall results
+  const winningTickets = tickets.filter(ticket => ticket.isWinner);
+  const totalWinnings = tickets.reduce((sum, ticket) => sum + (ticket.prizeAmount || 0), 0);
+  const hasAnyWinner = winningTickets.length > 0;
 
   return (
     <div className="max-w-2xl mx-auto">
       {/* Results Header */}
       <div className="card text-center mb-6">
         <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${
-          isWinner ? 'bg-success-500/20' : 'bg-slate-700/50'
+          hasAnyWinner ? 'bg-success-500/20' : 'bg-slate-700/50'
         }`}>
-          {isWinner ? (
+          {hasAnyWinner ? (
             <Trophy className="w-10 h-10 text-success-400" />
           ) : (
             <Gift className="w-10 h-10 text-slate-400" />
@@ -35,40 +37,67 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
         </div>
         
         <h2 className={`text-3xl font-bold mb-2 ${
-          isWinner ? 'text-success-400' : 'text-slate-300'
+          hasAnyWinner ? 'text-success-400' : 'text-slate-300'
         }`}>
-          {isWinner ? 'Congratulations!' : 'Better Luck Next Time'}
+          {hasAnyWinner ? 'Congratulations!' : 'Better Luck Next Time'}
         </h2>
         
-        <p className="text-slate-400">
-          {isWinner 
-            ? 'You have a winning ticket!' 
-            : 'This ticket did not win any prizes.'
+        <p className="text-slate-400 mb-2">
+          {hasAnyWinner 
+            ? `You have ${winningTickets.length} winning ticket${winningTickets.length > 1 ? 's' : ''}!` 
+            : 'No tickets won any prizes.'
           }
         </p>
+        
+        {hasAnyWinner && (
+          <p className="text-success-400 font-semibold text-lg">
+            Total Winnings: ${totalWinnings.toLocaleString()}
+          </p>
+        )}
       </div>
 
       {/* Your Numbers */}
       <div className="card mb-6">
         <h3 className="text-xl font-semibold mb-4">Your Numbers</h3>
-        <div className="flex items-center space-x-2">
-          {ticket.numbers.whiteBalls.map((ball, index) => (
-            <div key={index} className="number-ball number-ball-white">
-              {ball}
+        <div className="space-y-4">
+          {tickets.map((ticket, index) => (
+            <div key={ticket.id} className={`p-4 rounded-lg border ${
+              ticket.isWinner 
+                ? 'bg-success-500/10 border-success-500/30' 
+                : 'bg-slate-800/50 border-slate-700'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium text-slate-300">
+                  Line {String.fromCharCode(65 + index)} {/* A, B, C, D, E */}
+                </h4>
+                {ticket.isWinner && (
+                  <span className="text-success-400 font-semibold">
+                    Winner! ${ticket.prizeAmount?.toLocaleString()}
+                  </span>
+                )}
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                {ticket.numbers.whiteBalls.map((ball, ballIndex) => (
+                  <div key={ballIndex} className="number-ball number-ball-white">
+                    {ball}
+                  </div>
+                ))}
+                <span className="text-slate-400 mx-2">+</span>
+                <div className="number-ball number-ball-red">
+                  {ticket.numbers.powerball}
+                </div>
+                {ticket.numbers.powerPlay && (
+                  <>
+                    <span className="text-slate-400 mx-2">PP</span>
+                    <div className="number-ball bg-yellow-500 text-yellow-900 border-yellow-600">
+                      {ticket.numbers.powerPlay}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           ))}
-          <span className="text-slate-400 mx-2">+</span>
-          <div className="number-ball number-ball-red">
-            {ticket.numbers.powerball}
-          </div>
-          {ticket.numbers.powerPlay && (
-            <>
-              <span className="text-slate-400 mx-2">PP</span>
-              <div className="number-ball bg-yellow-500 text-yellow-900 border-yellow-600">
-                {ticket.numbers.powerPlay}
-              </div>
-            </>
-          )}
         </div>
       </div>
 
@@ -81,11 +110,19 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
       )}
 
       {/* Prize Information */}
-      {isWinner && prizeCategory && (
-        <PrizeCategoryComponent 
-          category={prizeCategory}
-          jackpotAmount={latestDraw?.jackpotAmount}
-        />
+      {winningTickets.length > 0 && (
+        <div className="space-y-4">
+          {winningTickets.map((ticket, index) => (
+            ticket.prizeCategory && (
+              <PrizeCategoryComponent 
+                key={ticket.id}
+                category={ticket.prizeCategory}
+                jackpotAmount={latestDraw?.jackpotAmount}
+                ticketLabel={`Line ${String.fromCharCode(65 + tickets.indexOf(ticket))}`}
+              />
+            )
+          ))}
+        </div>
       )}
 
       {/* Actions */}

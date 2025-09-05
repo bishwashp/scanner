@@ -6,7 +6,7 @@ import NumberCard from './NumberCard';
 interface NumberReviewProps {
   numbers?: PowerballNumbers;
   allNumbers?: PowerballNumbers[];
-  onNumbersSubmitted: (ticket: any) => void;
+  onNumbersSubmitted: (tickets: any[]) => void;
   onBack: () => void;
 }
 
@@ -32,15 +32,15 @@ const NumberReview: React.FC<NumberReviewProps> = ({ numbers, allNumbers, onNumb
   };
 
   const handleSubmit = () => {
-    // TODO: Create ticket object and submit
-    const ticket = {
-      id: Date.now().toString(),
-      numbers: ticketNumbers[0],
+    // Create ticket objects for all numbers and submit them
+    const tickets = ticketNumbers.map((numbers, index) => ({
+      id: `${Date.now()}-${index}`,
+      numbers: numbers,
       drawDate: new Date().toISOString(),
       isWinner: false // Will be determined by API
-    };
+    }));
     
-    onNumbersSubmitted(ticket);
+    onNumbersSubmitted(tickets);
   };
 
   const addNewTicket = () => {

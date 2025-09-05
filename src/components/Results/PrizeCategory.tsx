@@ -5,9 +5,10 @@ import { DollarSign, Star } from 'lucide-react';
 interface PrizeCategoryProps {
   category: PrizeCategory;
   jackpotAmount?: number;
+  ticketLabel?: string;
 }
 
-const PrizeCategory: React.FC<PrizeCategoryProps> = ({ category, jackpotAmount }) => {
+const PrizeCategory: React.FC<PrizeCategoryProps> = ({ category, jackpotAmount, ticketLabel }) => {
   const isJackpot = category.name === 'Jackpot';
   const displayAmount = isJackpot ? jackpotAmount : category.finalAmount;
 
@@ -23,7 +24,7 @@ const PrizeCategory: React.FC<PrizeCategoryProps> = ({ category, jackpotAmount }
         </div>
         
         <h3 className="text-2xl font-bold text-gradient mb-2">
-          {category.name}
+          {ticketLabel && `${ticketLabel}: `}{category.name}
         </h3>
         
         <p className="text-slate-400 mb-4">
