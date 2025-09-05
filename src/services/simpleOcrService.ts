@@ -98,7 +98,7 @@ export class SimpleOCRService {
       throw new Error('Failed to extract numbers from image');
     }
   }
-  
+
   private extractWithDirectPatterns(text: string): PowerballNumbers[] {
     console.log('Trying direct pattern extraction...');
     const results: PowerballNumbers[] = [];
