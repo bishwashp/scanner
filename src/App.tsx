@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import type { AppState, PowerballTicket } from './types/powerball';
+import type { AppState, PowerballTicket, PowerballNumbers } from './types/powerball';
 import LandingPage from './components/LandingPage';
-import CameraCapture from './components/Camera/CameraCapture';
-import ProcessingScreen from './components/ProcessingScreen';
+import DynamicCameraScanner from './components/Camera/DynamicCameraScanner';
 import NumberReview from './components/NumberReview/NumberReview';
 import ResultsDisplay from './components/Results/ResultsDisplay';
 import Header from './components/Common/Header';
@@ -14,7 +13,6 @@ function App() {
     tickets: [],
     isLoading: false,
   });
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   // Load latest Powerball draw on app start
   useEffect(() => {
@@ -40,16 +38,14 @@ function App() {
     setAppState(prev => ({ ...prev, currentStep: 'camera' }));
   };
 
-  const handleImageCaptured = (imageData: string) => {
-    setCapturedImage(imageData);
-    setAppState(prev => ({ ...prev, currentStep: 'processing' }));
-  };
 
-  const handleNumbersExtracted = (numbers: any) => {
+
+  const handleNumbersExtracted = (numbers: PowerballNumbers | PowerballNumbers[]) => {
     setAppState(prev => ({ 
       ...prev, 
       currentStep: 'review',
-      currentTicket: numbers 
+      currentTicket: Array.isArray(numbers) ? numbers[0] : numbers,
+      allTickets: Array.isArray(numbers) ? numbers : [numbers]
     }));
   };
 
@@ -85,7 +81,6 @@ function App() {
   };
 
   const handleScanAnother = () => {
-    setCapturedImage(null);
     setAppState(prev => ({ 
       ...prev, 
       currentStep: 'landing',
@@ -115,15 +110,7 @@ function App() {
         );
       case 'camera':
         return (
-          <CameraCapture 
-            onImageCaptured={handleImageCaptured}
-            onBack={handleBackToLanding}
-          />
-        );
-      case 'processing':
-        return (
-          <ProcessingScreen 
-            imageData={capturedImage || undefined}
+          <DynamicCameraScanner 
             onNumbersExtracted={handleNumbersExtracted}
             onBack={handleBackToLanding}
           />
@@ -132,6 +119,7 @@ function App() {
         return (
           <NumberReview 
             numbers={appState.currentTicket}
+            allNumbers={appState.allTickets}
             onNumbersSubmitted={handleNumbersSubmitted}
             onBack={handleBackToLanding}
           />

@@ -29,6 +29,12 @@ export class OCRService {
           }
         }
       });
+
+      // Set OCR parameters for better number recognition
+      await this.worker.setParameters({
+        tessedit_char_whitelist: '0123456789+-., ',
+        tessedit_ocr_engine_mode: 2, // LSTM OCR Engine only
+      });
       
       this.isInitialized = true;
       console.log('OCR Service initialized successfully');
@@ -45,7 +51,15 @@ export class OCRService {
 
     try {
       console.log('Starting OCR extraction...');
-      const { data } = await this.worker!.recognize(imageData);
+      
+      // Preprocess image for better OCR accuracy
+      const processedImageData = await this.preprocessImage(imageData);
+      
+      // Use faster recognition for real-time scanning
+      const { data } = await this.worker!.recognize(processedImageData, {
+        rectangle: { top: 0, left: 0, width: 1280, height: 720 }
+      });
+      
       const rawText = data.text;
       
       console.log('OCR Raw Text:', rawText);
@@ -66,8 +80,59 @@ export class OCRService {
     }
   }
 
+  private async preprocessImage(imageData: string): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          resolve(imageData);
+          return;
+        }
+
+        // Set canvas size
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        // Draw image
+        ctx.drawImage(img, 0, 0);
+
+        // Get image data for processing
+        const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageDataObj.data;
+
+        // Apply contrast enhancement and noise reduction
+        for (let i = 0; i < data.length; i += 4) {
+          // Convert to grayscale
+          const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+          
+          // Apply contrast enhancement
+          const enhanced = gray > 128 ? 255 : 0;
+          
+          data[i] = enhanced;     // Red
+          data[i + 1] = enhanced; // Green
+          data[i + 2] = enhanced; // Blue
+          // Alpha channel remains unchanged
+        }
+
+        // Put processed data back
+        ctx.putImageData(imageDataObj, 0, 0);
+
+        // Convert back to base64
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
+      };
+      
+      img.src = imageData;
+    });
+  }
+
   private parsePowerballNumbers(text: string): PowerballNumbers[] {
     const results: PowerballNumbers[] = [];
+    
+    // Split text into lines for multi-line processing
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     
     // Common patterns for Powerball numbers
     const patterns = [
@@ -77,40 +142,56 @@ export class OCRService {
       /(\d{1,2})-(\d{1,2})-(\d{1,2})-(\d{1,2})-(\d{1,2})\s*\+\s*(\d{1,2})/g,
       // Pattern: 12,23,34,45,56 + 7
       /(\d{1,2}),(\d{1,2}),(\d{1,2}),(\d{1,2}),(\d{1,2})\s*\+\s*(\d{1,2})/g,
+      // Pattern: 12 23 34 45 56 7 (without +)
+      /(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})/g,
     ];
 
-    for (const pattern of patterns) {
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        const whiteBalls = [
-          parseInt(match[1]),
-          parseInt(match[2]),
-          parseInt(match[3]),
-          parseInt(match[4]),
-          parseInt(match[5])
-        ];
-        
-        const powerball = parseInt(match[6]);
-        
-        // Validate numbers
-        if (this.isValidPowerballNumbers(whiteBalls, powerball)) {
-          results.push({
-            whiteBalls,
-            powerball
-          });
+    // Process each line separately
+    for (const line of lines) {
+      for (const pattern of patterns) {
+        let match;
+        const regex = new RegExp(pattern.source, pattern.flags);
+        while ((match = regex.exec(line)) !== null) {
+          const whiteBalls = [
+            parseInt(match[1]),
+            parseInt(match[2]),
+            parseInt(match[3]),
+            parseInt(match[4]),
+            parseInt(match[5])
+          ];
+          
+          const powerball = parseInt(match[6]);
+          
+          // Validate numbers
+          if (this.isValidPowerballNumbers(whiteBalls, powerball)) {
+            results.push({
+              whiteBalls,
+              powerball
+            });
+          }
         }
       }
     }
 
-    // If no patterns found, try to extract individual numbers
+    // If no patterns found, try to extract individual numbers from each line
     if (results.length === 0) {
-      const numbers = this.extractIndividualNumbers(text);
-      if (numbers.length > 0) {
-        results.push(...numbers);
+      for (const line of lines) {
+        const numbers = this.extractIndividualNumbers(line);
+        if (numbers.length > 0) {
+          results.push(...numbers);
+        }
       }
     }
 
-    return results;
+    // Remove duplicates
+    const uniqueResults = results.filter((numbers, index, arr) => 
+      arr.findIndex(n => 
+        JSON.stringify(n.whiteBalls.sort()) === JSON.stringify(numbers.whiteBalls.sort()) &&
+        n.powerball === numbers.powerball
+      ) === index
+    );
+
+    return uniqueResults;
   }
 
   private extractIndividualNumbers(text: string): PowerballNumbers[] {

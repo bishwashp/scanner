@@ -5,14 +5,15 @@ import NumberCard from './NumberCard';
 
 interface NumberReviewProps {
   numbers?: PowerballNumbers;
+  allNumbers?: PowerballNumbers[];
   onNumbersSubmitted: (ticket: any) => void;
   onBack: () => void;
 }
 
-const NumberReview: React.FC<NumberReviewProps> = ({ numbers, onNumbersSubmitted, onBack }) => {
+const NumberReview: React.FC<NumberReviewProps> = ({ numbers, allNumbers, onNumbersSubmitted, onBack }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [ticketNumbers, setTicketNumbers] = useState<PowerballNumbers[]>(
-    numbers ? [numbers] : []
+    allNumbers || (numbers ? [numbers] : [])
   );
 
   const handleEditNumbers = (index: number) => {

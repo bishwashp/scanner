@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Camera, RotateCcw, Flashlight, FlashlightOff } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Camera, RotateCcw, Flashlight, FlashlightOff, Loader2 } from 'lucide-react';
 
 interface CameraCaptureProps {
   onImageCaptured: (imageData: string) => void;
@@ -12,20 +12,20 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCaptured, onBack }
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [flashEnabled, setFlashEnabled] = useState(false);
 
-  useEffect(() => {
-    startCamera();
-    return () => {
+  const startCamera = useCallback(async () => {
+    try {
+      setIsInitializing(true);
+      setError(null);
+      
+      // Stop existing stream if any
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
-    };
-  }, []);
-
-  const startCamera = async () => {
-    try {
+      
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment', // Use back camera
@@ -39,12 +39,28 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCaptured, onBack }
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        
+        // Wait for video to be ready
+        videoRef.current.onloadedmetadata = () => {
+          setIsInitializing(false);
+        };
       }
     } catch (err) {
       console.error('Camera access denied:', err);
       setError('Camera access is required to scan tickets. Please allow camera permission.');
+      setIsInitializing(false);
     }
-  };
+  }, [stream]);
+
+  useEffect(() => {
+    startCamera();
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [startCamera]);
+
 
   const captureImage = async () => {
     if (!videoRef.current || !canvasRef.current || isCapturing) return;
@@ -108,15 +124,17 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCaptured, onBack }
     );
   }
 
-  if (!hasPermission) {
+  if (!hasPermission || isInitializing) {
     return (
       <div className="max-w-md mx-auto text-center">
         <div className="card">
           <div className="w-16 h-16 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
           </div>
           <h2 className="text-xl font-semibold mb-4">Starting Camera</h2>
-          <p className="text-slate-400">Please allow camera access to continue...</p>
+          <p className="text-slate-400">
+            {isInitializing ? 'Initializing camera...' : 'Please allow camera access to continue...'}
+          </p>
         </div>
       </div>
     );

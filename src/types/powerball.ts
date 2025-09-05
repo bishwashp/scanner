@@ -45,9 +45,10 @@ export interface CameraState {
 }
 
 export interface AppState {
-  currentStep: 'landing' | 'camera' | 'processing' | 'review' | 'results';
+  currentStep: 'landing' | 'camera' | 'review' | 'results';
   tickets: PowerballTicket[];
   currentTicket?: PowerballNumbers;
+  allTickets?: PowerballNumbers[];
   latestDraw?: PowerballDraw;
   isLoading: boolean;
   error?: string;
