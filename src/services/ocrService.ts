@@ -249,6 +249,9 @@ export class OCRService {
     // First, try to fix common OCR issues
     let cleanedText = text;
     
+    // Fix merged numbers like "2030375" -> "20 30 37 5"
+    cleanedText = cleanedText.replace(/(\d{2})(\d{2})(\d{2})(\d{1})/g, '$1 $2 $3 $4');
+    
     // Fix merged numbers like "2030" -> "20 30"
     cleanedText = cleanedText.replace(/(\d{2})(\d{2})/g, '$1 $2');
     
@@ -272,6 +275,22 @@ export class OCRService {
       if (this.isValidPowerballNumbers(whiteBalls, powerball)) {
         console.log('Valid number set found:', { whiteBalls, powerball });
         results.push({ whiteBalls, powerball });
+      }
+    }
+    
+    // If still no results, try with more lenient validation
+    if (results.length === 0) {
+      console.log('No valid sets found, trying lenient validation...');
+      for (let i = 0; i <= numbers.length - 6; i++) {
+        const whiteBalls = numbers.slice(i, i + 5);
+        const powerball = numbers[i + 5];
+        
+        // More lenient validation - just check ranges, allow duplicates for now
+        if (whiteBalls.every(ball => ball >= 1 && ball <= 69) && 
+            powerball >= 1 && powerball <= 26) {
+          console.log('Lenient valid set found:', { whiteBalls, powerball });
+          results.push({ whiteBalls, powerball });
+        }
       }
     }
 

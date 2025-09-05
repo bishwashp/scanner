@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, RotateCcw, Flashlight, FlashlightOff, Loader2 } from 'lucide-react';
-import { ocrService } from '../../services/ocrService';
+import { simpleOcrService } from '../../services/simpleOcrService';
 import type { PowerballNumbers } from '../../types/powerball';
 
 interface CameraCaptureProps {
@@ -66,7 +66,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
     // Process with OCR
     setIsProcessing(true);
     try {
-      const result = await ocrService.extractNumbers(imageData);
+      const result = await simpleOcrService.extractNumbers(imageData);
       console.log('OCR Result:', result);
       
       if (result.numbers && result.numbers.length > 0) {
@@ -84,7 +84,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 
   useEffect(() => {
     startCamera();
-    ocrService.initialize();
+    simpleOcrService.initialize();
     
     return () => {
       if (stream) {
