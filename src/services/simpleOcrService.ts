@@ -61,7 +61,18 @@ export class SimpleOCRService {
       console.log('OCR Raw Text:', rawText);
       console.log('OCR Confidence:', data.confidence);
       
-      // 1) Try bounding-box driven extraction first
+      // Try direct pattern-based extraction first (most reliable)
+      const directExtracted = this.extractWithDirectPatterns(rawText);
+      if (directExtracted.length > 0) {
+        console.log('Direct pattern extraction succeeded:', directExtracted);
+        return {
+          numbers: directExtracted,
+          confidence: data.confidence / 100,
+          rawText
+        };
+      }
+      
+      // 1) Try bounding-box driven extraction next
       let numbers: PowerballNumbers[] = [];
       const words: any[] = (data as any).words || [];
       if (words && words.length > 0) {
@@ -86,6 +97,127 @@ export class SimpleOCRService {
       console.error('Simple OCR extraction failed:', error);
       throw new Error('Failed to extract numbers from image');
     }
+  }
+  
+  private extractWithDirectPatterns(text: string): PowerballNumbers[] {
+    console.log('Trying direct pattern extraction...');
+    const results: PowerballNumbers[] = [];
+    
+    // Define the expected patterns for each line
+    const linePatterns = [
+      // A line pattern - match digits directly
+      /A\.?\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2}).*?(\d{1,2})/i,
+      // B line pattern
+      /B\.?\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2}).*?(\d{1,2})/i,
+      // C line pattern
+      /C\.?\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2}).*?(\d{1,2})/i,
+      // D line pattern
+      /D\.?\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2}).*?(\d{1,2})/i,
+      // E line pattern
+      /E\.?\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2}).*?(\d{1,2})/i,
+    ];
+    
+    // Try to extract merged number patterns too
+    const mergedPatterns = [
+      // A line with merged numbers
+      /A\.?\s+(\d{2})(\d{2})(\d{2})(\d{2})(\d{1,2}).*?(\d{1,2})/i,
+      // B line with merged numbers
+      /B\.?\s+(\d{2})(\d{2})(\d{2})(\d{2})(\d{1,2}).*?(\d{1,2})/i,
+      // C line with merged numbers
+      /C\.?\s+(\d{2})(\d{2})(\d{2})(\d{2})(\d{1,2}).*?(\d{1,2})/i,
+      // D line with merged numbers
+      /D\.?\s+(\d{2})(\d{2})(\d{2})(\d{2})(\d{1,2}).*?(\d{1,2})/i,
+      // E line with merged numbers
+      /E\.?\s+(\d{2})(\d{2})(\d{2})(\d{2})(\d{1,2}).*?(\d{1,2})/i,
+    ];
+    
+    // Try each pattern on each line
+    const lines = text.split('\n');
+    
+    // First try standard patterns
+    for (const pattern of linePatterns) {
+      for (const line of lines) {
+        const match = line.match(pattern);
+        if (match) {
+          const whiteBalls = [
+            parseInt(match[1], 10),
+            parseInt(match[2], 10),
+            parseInt(match[3], 10),
+            parseInt(match[4], 10),
+            parseInt(match[5], 10)
+          ];
+          const powerball = parseInt(match[6], 10);
+          
+          if (this.isValidPowerballSet(whiteBalls, powerball)) {
+            results.push({ whiteBalls, powerball });
+            console.log(`Direct pattern match: ${line} -> ${whiteBalls.join(',')} + ${powerball}`);
+          }
+        }
+      }
+    }
+    
+    // Then try merged patterns
+    if (results.length < 5) {
+      for (const pattern of mergedPatterns) {
+        for (const line of lines) {
+          const match = line.match(pattern);
+          if (match) {
+            const whiteBalls = [
+              parseInt(match[1], 10),
+              parseInt(match[2], 10),
+              parseInt(match[3], 10),
+              parseInt(match[4], 10),
+              parseInt(match[5], 10)
+            ];
+            const powerball = parseInt(match[6], 10);
+            
+            if (this.isValidPowerballSet(whiteBalls, powerball)) {
+              const isDuplicate = results.some(existing => 
+                JSON.stringify(existing.whiteBalls.sort()) === JSON.stringify(whiteBalls.sort()) &&
+                existing.powerball === powerball
+              );
+              
+              if (!isDuplicate) {
+                results.push({ whiteBalls, powerball });
+                console.log(`Merged pattern match: ${line} -> ${whiteBalls.join(',')} + ${powerball}`);
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Try to find any missing lines using the expected format
+    const expectedLetters = ['A', 'B', 'C', 'D', 'E'];
+    const foundLetters = results.map((_, i) => expectedLetters[i]);
+    const missingLetters = expectedLetters.filter(letter => !foundLetters.includes(letter));
+    
+    if (missingLetters.length > 0) {
+      console.log('Missing letters:', missingLetters);
+      
+      // Look for lines with these missing letters
+      for (const letter of missingLetters) {
+        for (const line of lines) {
+          if (line.includes(letter) && /\d/.test(line)) {
+            console.log(`Trying to parse line with missing letter ${letter}:`, line);
+            
+            // Extract all numbers from the line
+            const numbers = this.extractAllNumbers(line).filter(n => n > 0 && n < 70);
+            if (numbers.length >= 6) {
+              const whiteBalls = numbers.slice(0, 5);
+              const powerball = numbers[5];
+              
+              if (this.isValidPowerballSet(whiteBalls, powerball)) {
+                results.push({ whiteBalls, powerball });
+                console.log(`Recovered missing line ${letter}: ${whiteBalls.join(',')} + ${powerball}`);
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return results;
   }
 
   private extractFromWordBoxes(words: any[]): PowerballNumbers[] {
