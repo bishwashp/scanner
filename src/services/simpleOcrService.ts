@@ -176,7 +176,10 @@ export class SimpleOCRService {
     console.log('Parsing lottery line:', line);
     
     // Remove the line prefix (A. B. C. etc.) and any extra characters
-    let cleanLine = line.replace(/^[A-E]\.?\s*/, '').replace(/^-\s*[A-E]\.?\s*/, '');
+    let cleanLine = line
+      .replace(/^\+\s*[A-E]\.?\s*/, '')  // "+ B." style
+      .replace(/^\-\s*[A-E]\.?\s*/, '')  // "- A." style
+      .replace(/^[A-E]\.?\s*/, '');       // "A." or "A " style
     console.log('Cleaned line:', cleanLine);
     
     // Fix merged numbers (like "203037561" -> "20 30 37 55 61")
@@ -188,7 +191,12 @@ export class SimpleOCRService {
     console.log('Numbers in line:', numbers);
     
     if (numbers.length < 6) {
-      console.log('Not enough numbers in line');
+      console.log('Not enough numbers in line, trying digits-only segmentation');
+      const segmented = this.segmentFromDigitsOnly(cleanLine);
+      if (segmented) {
+        console.log('Recovered via digits-only segmentation:', segmented);
+        return segmented;
+      }
       return null;
     }
     
@@ -201,6 +209,12 @@ export class SimpleOCRService {
       return { whiteBalls, powerball };
     }
     
+    // If the first 6 tokens didn't validate, try digits-only segmentation as fallback
+    const segmented = this.segmentFromDigitsOnly(cleanLine);
+    if (segmented) {
+      console.log('Recovered via digits-only segmentation:', segmented);
+      return segmented;
+    }
     console.log('Invalid lottery line');
     return null;
   }
@@ -222,6 +236,27 @@ export class SimpleOCRService {
     fixed = fixed.replace(/(\d{2})(\d{2})/g, '$1 $2');
     
     return fixed;
+  }
+
+  private segmentFromDigitsOnly(text: string): PowerballNumbers | null {
+    const digits = text.replace(/\D/g, '');
+    if (digits.length < 12) return null; // need at least 12 digits for 5x2 + 2
+
+    for (let i = 0; i <= digits.length - 12; i++) {
+      const whiteBalls = [
+        parseInt(digits.substring(i, i + 2), 10),
+        parseInt(digits.substring(i + 2, i + 4), 10),
+        parseInt(digits.substring(i + 4, i + 6), 10),
+        parseInt(digits.substring(i + 6, i + 8), 10),
+        parseInt(digits.substring(i + 8, i + 10), 10),
+      ];
+      const powerball = parseInt(digits.substring(i + 10, i + 12), 10);
+
+      if (this.isValidPowerballSet(whiteBalls, powerball)) {
+        return { whiteBalls, powerball };
+      }
+    }
+    return null;
   }
 
   private fallbackExtraction(text: string): PowerballNumbers[] {
