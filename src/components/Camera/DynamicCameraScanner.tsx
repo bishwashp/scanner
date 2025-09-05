@@ -18,11 +18,12 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flashEnabled, setFlashEnabled] = useState(false);
+  const [cameraStarted, setCameraStarted] = useState(false);
   
   // OCR and scanning state
   const [isOcrReady, setIsOcrReady] = useState(false);
@@ -47,56 +48,9 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
       console.log('Got media stream:', mediaStream);
       setStream(mediaStream);
       setHasPermission(true);
+      setCameraStarted(true);
+      setIsInitializing(false);
       
-      // Wait for video element to be available
-      const setupVideo = () => {
-        if (videoRef.current) {
-          const video = videoRef.current;
-          video.srcObject = mediaStream;
-          
-          console.log('Setting video srcObject:', mediaStream);
-          console.log('Video element:', video);
-          
-          // Add multiple event listeners to ensure we catch when video is ready
-          const handleVideoReady = () => {
-            console.log('Video metadata loaded, camera ready');
-            console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-            setIsInitializing(false);
-          };
-          
-          const handleVideoError = (e: any) => {
-            console.error('Video error:', e);
-            setError('Video playback error');
-            setIsInitializing(false);
-          };
-          
-          video.onloadedmetadata = handleVideoReady;
-          video.oncanplay = handleVideoReady;
-          video.onerror = handleVideoError;
-          
-          // Force play the video
-          video.play().catch((err) => {
-            console.error('Video play error:', err);
-          });
-          
-          // Fallback timeout in case events don't fire
-          setTimeout(() => {
-            console.log('Camera initialization timeout, proceeding anyway');
-            setIsInitializing(false);
-          }, 3000);
-        } else {
-          console.log('Video ref not ready yet, retrying...');
-          // Check if video element exists in DOM
-          const videoElement = document.querySelector('video');
-          console.log('Video element in DOM:', videoElement);
-          console.log('Video ref current:', videoRef.current);
-          
-          // Retry after a short delay, but limit retries
-          setTimeout(setupVideo, 100);
-        }
-      };
-      
-      setupVideo();
     } catch (err) {
       console.error('Camera access denied:', err);
       setError('Camera access is required to scan tickets. Please allow camera permission.');
@@ -201,7 +155,6 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
 
   useEffect(() => {
     console.log('DynamicCameraScanner useEffect called');
-    startCamera();
     initializeOCR();
     
     return () => {
@@ -209,7 +162,37 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
         clearInterval(scanIntervalRef.current);
       }
     };
-  }, [startCamera, initializeOCR]);
+  }, [initializeOCR]);
+
+  // Setup video when stream is available and component is rendered
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      const video = videoRef.current;
+      video.srcObject = stream;
+      
+      console.log('Setting video srcObject:', stream);
+      console.log('Video element:', video);
+      
+      // Add event listeners
+      const handleVideoReady = () => {
+        console.log('Video metadata loaded, camera ready');
+        console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+      };
+      
+      const handleVideoError = (e: any) => {
+        console.error('Video error:', e);
+      };
+      
+      video.onloadedmetadata = handleVideoReady;
+      video.oncanplay = handleVideoReady;
+      video.onerror = handleVideoError;
+      
+      // Force play the video
+      video.play().catch((err) => {
+        console.error('Video play error:', err);
+      });
+    }
+  }, [stream]);
 
   // Cleanup stream when component unmounts
   useEffect(() => {
@@ -242,21 +225,68 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
     );
   }
 
-  if (!hasPermission || isInitializing) {
-    console.log('Loading state - hasPermission:', hasPermission, 'isInitializing:', isInitializing, 'isOcrReady:', isOcrReady);
+  if (!cameraStarted) {
     return (
-      <div className="max-w-md mx-auto text-center">
+      <div className="max-w-2xl mx-auto">
         <div className="card">
-          <div className="w-16 h-16 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-semibold mb-2">Scan Your Ticket</h2>
+            <p className="text-slate-400">
+              Position your Powerball ticket within the frame and tap start scanning
+            </p>
           </div>
-          <h2 className="text-xl font-semibold mb-4">Initializing Scanner</h2>
-          <p className="text-slate-400">
-            {isInitializing ? 'Starting camera...' : 
-             'Please allow camera access to continue...'}
-          </p>
-          <div className="text-xs text-slate-500 mt-2">
-            Debug: hasPermission={hasPermission.toString()}, isInitializing={isInitializing.toString()}, isOcrReady={isOcrReady.toString()}
+
+          {/* Camera Preview - Always show the viewport */}
+          <div className="relative bg-black rounded-lg overflow-hidden mb-6">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              webkit-playsinline="true"
+              className="w-full h-64 md:h-80 object-cover"
+              style={{ backgroundColor: '#000' }}
+            />
+            
+            {/* Scanning Guidelines */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute inset-4 border-2 border-primary-500/50 rounded-lg">
+                <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary-500 rounded-tl-lg"></div>
+                <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary-500 rounded-tr-lg"></div>
+                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary-500 rounded-bl-lg"></div>
+                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary-500 rounded-br-lg"></div>
+              </div>
+            </div>
+
+            {/* Start Camera Overlay */}
+            {!cameraStarted && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <button
+                  onClick={startCamera}
+                  disabled={isInitializing}
+                  className="w-16 h-16 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 rounded-full flex items-center justify-center transition-colors"
+                >
+                  {isInitializing ? (
+                    <Loader2 className="w-8 h-8 text-white animate-spin" />
+                  ) : (
+                    <Camera className="w-8 h-8 text-white" />
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Refresh Button */}
+            <button
+              onClick={startCamera}
+              className="absolute top-4 left-4 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+            >
+              <RotateCcw className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Instructions */}
+          <div className="text-center text-sm text-slate-400">
+            <p>Tap the camera button to start scanning</p>
           </div>
         </div>
       </div>
