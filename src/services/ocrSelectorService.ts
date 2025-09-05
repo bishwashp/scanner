@@ -5,10 +5,12 @@ import { paddleOcrService } from './paddleOcrService';
 /**
  * OCR Engine Type
  */
-export enum OCREngineType {
-  Tesseract = 'tesseract',
-  PaddleOCR = 'paddleocr'
-}
+export const OCREngineType = {
+  Tesseract: 'tesseract',
+  PaddleOCR: 'paddleocr'
+} as const;
+
+export type OCREngineType = typeof OCREngineType[keyof typeof OCREngineType];
 
 /**
  * OCR Selector Service for switching between OCR engines
