@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { AppState, PowerballTicket, PowerballNumbers } from './types/powerball';
 import LandingPage from './components/LandingPage';
-import DynamicCameraScanner from './components/Camera/DynamicCameraScanner';
+import CameraCapture from './components/Camera/CameraCapture';
 import NumberReview from './components/NumberReview/NumberReview';
 import ResultsDisplay from './components/Results/ResultsDisplay';
 import Header from './components/Common/Header';
@@ -110,7 +110,7 @@ function App() {
         );
       case 'camera':
         return (
-          <DynamicCameraScanner 
+          <CameraCapture 
             onNumbersExtracted={handleNumbersExtracted}
             onBack={handleBackToLanding}
           />

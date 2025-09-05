@@ -1,106 +1,108 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, RotateCcw, Flashlight, FlashlightOff, Loader2 } from 'lucide-react';
+import { ocrService } from '../../services/ocrService';
+import type { PowerballNumbers } from '../../types/powerball';
 
 interface CameraCaptureProps {
-  onImageCaptured: (imageData: string) => void;
+  onNumbersExtracted: (numbers: PowerballNumbers[]) => void;
   onBack: () => void;
 }
 
-const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCaptured, onBack }) => {
+const CameraCapture: React.FC<CameraCaptureProps> = ({ 
+  onNumbersExtracted, 
+  onBack 
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [hasPermission, setHasPermission] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flashEnabled, setFlashEnabled] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const startCamera = useCallback(async () => {
     try {
       setIsInitializing(true);
       setError(null);
       
-      // Stop existing stream if any
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: 'environment', // Use back camera
+          facingMode: 'environment',
           width: { ideal: 1280 },
           height: { ideal: 720 }
         }
       });
       
       setStream(mediaStream);
-      setHasPermission(true);
+      setIsInitializing(false);
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        
-        // Wait for video to be ready
-        videoRef.current.onloadedmetadata = () => {
-          setIsInitializing(false);
-        };
-      }
     } catch (err) {
       console.error('Camera access denied:', err);
       setError('Camera access is required to scan tickets. Please allow camera permission.');
       setIsInitializing(false);
     }
-  }, [stream]);
+  }, []);
+
+  const capturePhoto = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+    
+    if (!context) return;
+
+    // Set canvas size to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Draw video frame to canvas
+    context.drawImage(video, 0, 0);
+    
+    // Convert to base64
+    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    
+    // Process with OCR
+    setIsProcessing(true);
+    try {
+      const result = await ocrService.extractNumbers(imageData);
+      console.log('OCR Result:', result);
+      
+      if (result.numbers && result.numbers.length > 0) {
+        onNumbersExtracted(result.numbers);
+      } else {
+        setError('No Powerball numbers detected. Please try again with better lighting.');
+        setIsProcessing(false);
+      }
+    } catch (error) {
+      console.error('OCR processing error:', error);
+      setError('Failed to process the image. Please try again.');
+      setIsProcessing(false);
+    }
+  }, [onNumbersExtracted]);
 
   useEffect(() => {
     startCamera();
+    ocrService.initialize();
+    
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [startCamera]);
+  }, [startCamera, stream]);
 
-
-  const captureImage = async () => {
-    if (!videoRef.current || !canvasRef.current || isCapturing) return;
-
-    setIsCapturing(true);
-    
-    try {
+  // Setup video when stream is available
+  useEffect(() => {
+    if (stream && videoRef.current) {
       const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
-      
-      if (!context) throw new Error('Canvas context not available');
-
-      // Set canvas size to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      // Draw video frame to canvas
-      context.drawImage(video, 0, 0);
-      
-      // Convert to base64
-      const imageData = canvas.toDataURL('image/jpeg', 0.8);
-      
-      // Stop camera stream
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      
-      onImageCaptured(imageData);
-    } catch (err) {
-      console.error('Failed to capture image:', err);
-      setError('Failed to capture image. Please try again.');
-    } finally {
-      setIsCapturing(false);
+      video.srcObject = stream;
+      video.play().catch((err) => {
+        console.error('Video play error:', err);
+      });
     }
-  };
-
-  const retakePhoto = () => {
-    startCamera();
-  };
+  }, [stream]);
 
   if (error) {
     return (
@@ -124,22 +126,6 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCaptured, onBack }
     );
   }
 
-  if (!hasPermission || isInitializing) {
-    return (
-      <div className="max-w-md mx-auto text-center">
-        <div className="card">
-          <div className="w-16 h-16 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Loader2 className="w-8 h-8 text-primary-400 animate-spin" />
-          </div>
-          <h2 className="text-xl font-semibold mb-4">Starting Camera</h2>
-          <p className="text-slate-400">
-            {isInitializing ? 'Initializing camera...' : 'Please allow camera access to continue...'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-2xl mx-auto">
       <div className="card">
@@ -157,7 +143,9 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCaptured, onBack }
             autoPlay
             playsInline
             muted
+            webkit-playsinline="true"
             className="w-full h-64 md:h-80 object-cover"
+            style={{ backgroundColor: '#000' }}
           />
           
           {/* Scanning Guidelines */}
@@ -169,6 +157,34 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCaptured, onBack }
               <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary-500 rounded-br-lg"></div>
             </div>
           </div>
+
+          {/* Loading Overlay */}
+          {isInitializing && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="text-center text-white">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                <p className="text-sm">Starting camera...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Processing Overlay */}
+          {isProcessing && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <div className="text-center text-white">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                <p className="text-sm">Processing image...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Refresh Button */}
+          <button
+            onClick={startCamera}
+            className="absolute top-4 left-4 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
 
           {/* Flash Toggle */}
           <button
@@ -182,22 +198,18 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCaptured, onBack }
         {/* Controls */}
         <div className="flex items-center justify-center space-x-4">
           <button
-            onClick={retakePhoto}
+            onClick={startCamera}
             className="p-3 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors"
           >
             <RotateCcw className="w-6 h-6" />
           </button>
           
           <button
-            onClick={captureImage}
-            disabled={isCapturing}
-            className="w-16 h-16 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 rounded-full flex items-center justify-center transition-colors"
+            onClick={capturePhoto}
+            disabled={isInitializing || isProcessing}
+            className="w-16 h-16 bg-primary-500 hover:bg-primary-600 disabled:bg-slate-500 rounded-full flex items-center justify-center transition-colors"
           >
-            {isCapturing ? (
-              <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Camera className="w-8 h-8 text-white" />
-            )}
+            <Camera className="w-8 h-8 text-white" />
           </button>
           
           <div className="w-12 h-12" /> {/* Spacer */}
@@ -209,7 +221,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCaptured, onBack }
         </div>
       </div>
 
-      {/* Hidden canvas for image capture */}
+      {/* Hidden canvas for photo capture */}
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );
