@@ -155,6 +155,7 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
 
   useEffect(() => {
     console.log('DynamicCameraScanner useEffect called');
+    startCamera();
     initializeOCR();
     
     return () => {
@@ -162,7 +163,7 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
         clearInterval(scanIntervalRef.current);
       }
     };
-  }, [initializeOCR]);
+  }, [startCamera, initializeOCR]);
 
   // Setup video when stream is available and component is rendered
   useEffect(() => {
@@ -258,20 +259,13 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
               </div>
             </div>
 
-            {/* Start Camera Overlay */}
+            {/* Loading Overlay */}
             {!cameraStarted && (
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <button
-                  onClick={startCamera}
-                  disabled={isInitializing}
-                  className="w-16 h-16 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 rounded-full flex items-center justify-center transition-colors"
-                >
-                  {isInitializing ? (
-                    <Loader2 className="w-8 h-8 text-white animate-spin" />
-                  ) : (
-                    <Camera className="w-8 h-8 text-white" />
-                  )}
-                </button>
+                <div className="text-center text-white">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                  <p className="text-sm">Starting camera...</p>
+                </div>
               </div>
             )}
 
@@ -286,7 +280,7 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
 
           {/* Instructions */}
           <div className="text-center text-sm text-slate-400">
-            <p>Tap the camera button to start scanning</p>
+            <p>Camera will start automatically. Position your ticket within the frame.</p>
           </div>
         </div>
       </div>
