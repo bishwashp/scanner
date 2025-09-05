@@ -1,5 +1,6 @@
 import React from 'react';
-import { Camera, Zap, Shield, Smartphone, Sparkles, Trophy, Star } from 'lucide-react';
+import { Camera, Zap, Shield, Smartphone, Sparkles, Trophy, Star, Settings } from 'lucide-react';
+import OCREngineSelector from './Common/OCREngineSelector';
 
 interface LandingPageProps {
   onStartScanning: () => void;
@@ -216,6 +217,20 @@ const LandingPage: React.FC<LandingPageProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Advanced Settings */}
+      <div className="relative mt-16 mb-16">
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-800/30 via-primary-500/10 to-slate-800/30 rounded-3xl blur-xl"></div>
+        <div className="relative bg-gradient-to-br from-dark-surface/90 to-dark-surface/70 backdrop-blur-sm border border-slate-700/50 rounded-3xl p-6">
+          <div className="flex items-center space-x-2 mb-4">
+            <Settings className="w-5 h-5 text-primary-400" />
+            <h3 className="text-xl font-bold bg-gradient-to-r from-primary-400 to-secondary-400 bg-clip-text text-transparent">
+              Advanced Settings
+            </h3>
+          </div>
+          <OCREngineSelector />
         </div>
       </div>
 
