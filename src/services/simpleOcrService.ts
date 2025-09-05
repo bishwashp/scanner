@@ -71,6 +71,7 @@ export class SimpleOCRService {
       
       // 2) Fallback to text-based extraction
       if (numbers.length === 0) {
+        console.log('Word-box extraction failed, falling back to text-based method.');
         numbers = this.extractPowerballNumbersSimple(rawText);
       }
       
@@ -84,6 +85,52 @@ export class SimpleOCRService {
     } catch (error) {
       console.error('Simple OCR extraction failed:', error);
       throw new Error('Failed to extract numbers from image');
+    }
+  }
+
+  private extractFromWordBoxes(words: any[]): PowerballNumbers[] {
+    try {
+      // Group words into rows by their vertical center
+      const rows: Record<string, any[]> = {};
+      for (const w of words) {
+        const b = (w as any).bbox || {};
+        const yc = (b.y0 + b.y1) / 2;
+        const rowKey = String(Math.round(yc / 20)); // coarse bucket
+        if (!rows[rowKey]) rows[rowKey] = [];
+        rows[rowKey].push(w);
+      }
+
+      const rowKeys = Object.keys(rows).sort((a, b) => Number(a) - Number(b));
+      const candidateLines: string[] = [];
+
+      for (const key of rowKeys) {
+        const row = rows[key].slice().sort((a, b) => (a.bbox?.x0 ?? 0) - (b.bbox?.x0 ?? 0));
+        const text = row.map((w: any) => (w.text || '').toString()).join(' ').trim();
+        if (!text) continue;
+        
+        // Skip obvious headers/footers
+        if (/power\s*play|powerball|education|thanks|draw|cash value|mon\s|printed/i.test(text)) continue;
+        candidateLines.push(text);
+      }
+      console.log('Candidate lines from word boxes:', candidateLines);
+
+      // Prefer lines that contain A./B./C./D./E. markers near the start
+      const prioritized = candidateLines.filter(t => /(^|\s)[A-E](\.|\s)/.test(t));
+      const linesToTry = prioritized.length > 0 ? prioritized : candidateLines;
+      console.log('Prioritized lines to try:', linesToTry);
+
+
+      const results: PowerballNumbers[] = [];
+      for (const line of linesToTry) {
+        const parsed = this.parseLotteryLine(line);
+        if (parsed) results.push(parsed);
+      }
+
+      // De-dup
+      return this.removeDuplicateSequences(results);
+    } catch (e) {
+      console.warn('Word-box extraction failed:', e);
+      return [];
     }
   }
 
@@ -360,54 +407,6 @@ export class SimpleOCRService {
     }
     
     return unique;
-  }
-
-  private extractFromWordBoxes(words: any[]): PowerballNumbers[] {
-    try {
-      // Group words into rows by their vertical center
-      const rows: Record<string, any[]> = {};
-      for (const w of words) {
-        const b = (w as any).bbox || (w as any).boundingBox || {};
-        const y0 = b.y0 ?? b.top ?? 0;
-        const y1 = b.y1 ?? b.bottom ?? y0;
-        const yc = (y0 + y1) / 2;
-        const rowKey = String(Math.round(yc / 20)); // coarse bucket
-        if (!rows[rowKey]) rows[rowKey] = [];
-        rows[rowKey].push(w);
-      }
-
-      const rowKeys = Object.keys(rows).sort((a, b) => Number(a) - Number(b));
-      const candidateLines: string[] = [];
-
-      for (const key of rowKeys) {
-        const row = rows[key].slice().sort((a, b) => {
-          const ax = (a.bbox?.x0 ?? 0);
-          const bx = (b.bbox?.x0 ?? 0);
-          return ax - bx;
-        });
-        const text = row.map((w: any) => (w.text || '').toString()).join(' ').trim();
-        if (!text) continue;
-        // Skip obvious headers
-        if (/power\s*play|powerball|education|thanks|draw|cash value|mon\s|printed/i.test(text)) continue;
-        candidateLines.push(text);
-      }
-
-      // Prefer lines that contain A./B./C./D./E. markers near the start
-      const prioritized = candidateLines.filter(t => /(^|\s)[A-E](\.|\s)/.test(t));
-      const linesToTry = prioritized.length > 0 ? prioritized : candidateLines;
-
-      const results: PowerballNumbers[] = [];
-      for (const line of linesToTry) {
-        const parsed = this.parseLotteryLine(line);
-        if (parsed) results.push(parsed);
-      }
-
-      // De-dup
-      return this.removeDuplicateSequences(results);
-    } catch (e) {
-      console.warn('Word-box extraction failed:', e);
-      return [];
-    }
   }
 
   public async terminate(): Promise<void> {
