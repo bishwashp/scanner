@@ -112,7 +112,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
       {/* Prize Information */}
       {winningTickets.length > 0 && (
         <div className="space-y-4">
-          {winningTickets.map((ticket, index) => (
+          {winningTickets.map((ticket) => (
             ticket.prizeCategory && (
               <PrizeCategoryComponent 
                 key={ticket.id}
