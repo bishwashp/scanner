@@ -162,8 +162,8 @@ export class SimpleOCRService {
     const lotteryLines: string[] = [];
     
     for (const line of lines) {
-      // Look for lines that start with A. B. C. D. E. (with or without dot)
-      if (/^[A-E]\.?\s/.test(line)) {
+      // Look for lines that start with A. B. C. D. E. (with or without dot, with or without extra characters)
+      if (/^[A-E]\.?\s/.test(line) || /^[A-E]\s/.test(line) || /^-\s*[A-E]\.?\s/.test(line)) {
         lotteryLines.push(line);
         console.log('Found lottery line:', line);
       }
@@ -175,9 +175,13 @@ export class SimpleOCRService {
   private parseLotteryLine(line: string): PowerballNumbers | null {
     console.log('Parsing lottery line:', line);
     
-    // Remove the line prefix (A. B. C. etc.)
-    const cleanLine = line.replace(/^[A-E]\.?\s*/, '');
+    // Remove the line prefix (A. B. C. etc.) and any extra characters
+    let cleanLine = line.replace(/^[A-E]\.?\s*/, '').replace(/^-\s*[A-E]\.?\s*/, '');
     console.log('Cleaned line:', cleanLine);
+    
+    // Fix merged numbers (like "203037561" -> "20 30 37 55 61")
+    cleanLine = this.fixMergedNumbers(cleanLine);
+    console.log('Fixed merged numbers:', cleanLine);
     
     // Extract all numbers from the line
     const numbers = this.extractAllNumbers(cleanLine);
@@ -199,6 +203,25 @@ export class SimpleOCRService {
     
     console.log('Invalid lottery line');
     return null;
+  }
+
+  private fixMergedNumbers(text: string): string {
+    // Fix common merged number patterns
+    let fixed = text;
+    
+    // Fix patterns like "203037561" -> "20 30 37 55 61"
+    fixed = fixed.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{1})/g, '$1 $2 $3 $4 $5');
+    
+    // Fix patterns like "0519364964" -> "05 19 36 49 64"
+    fixed = fixed.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/g, '$1 $2 $3 $4 $5');
+    
+    // Fix patterns like "1719284" -> "17 19 28 4"
+    fixed = fixed.replace(/(\d{2})(\d{2})(\d{2})(\d{1})/g, '$1 $2 $3 $4');
+    
+    // Fix patterns like "0820" -> "08 20"
+    fixed = fixed.replace(/(\d{2})(\d{2})/g, '$1 $2');
+    
+    return fixed;
   }
 
   private fallbackExtraction(text: string): PowerballNumbers[] {
