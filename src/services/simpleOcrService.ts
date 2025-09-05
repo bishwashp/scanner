@@ -173,7 +173,7 @@ export class SimpleOCRService {
     
     for (const line of lines) {
       // Look for lines that likely contain A-E markers near the start
-      if (/^.{0,3}[A-E]\.?\s/.test(line) || /^[\d\.\-\+]\s*[A-E]\.?\s/.test(line)) {
+      if (/^.{0,5}[A-E]\.?\s/.test(line) || /^[\d\.\-\+]{0,3}\s*[A-E]\.?\s/.test(line)) {
         lotteryLines.push(line);
         console.log('Found lottery line:', line);
       }
@@ -194,8 +194,8 @@ export class SimpleOCRService {
     console.log('Fixed merged numbers:', cleanLine);
     
     // Extract all numbers from the line
-    const numbers = this.extractAllNumbers(cleanLine);
-    console.log('Numbers in line:', numbers);
+    let numbers = this.extractAllNumbers(cleanLine).filter(n => n > 0); // Filter out 0
+    console.log('Numbers in line (filtered):', numbers);
     
     if (numbers.length < 6) {
       console.log('Not enough numbers in line, trying digits-only segmentation');
@@ -227,7 +227,6 @@ export class SimpleOCRService {
   }
 
   private fixMergedNumbers(text: string): string {
-    // Fix common merged number patterns
     let fixed = text;
     
     // Fix patterns like "203037561" -> "20 30 37 55 61"
@@ -243,28 +242,36 @@ export class SimpleOCRService {
     fixed = fixed.replace(/(\d{2})(\d{2})/g, '$1 $2');
     
     // Fix patterns like "5561" -> "55 61"
+    fixed = fixed.replace(/(\d{2})(\d{2})/g, '$1 $2');
+    
+    // Fix patterns like "465" -> "46 5"
     fixed = fixed.replace(/(\d{2})(\d{1})/g, '$1 $2');
     
     return fixed;
   }
 
   private segmentFromDigitsOnly(text: string): PowerballNumbers | null {
-    const digits = text.replace(/\D/g, '');
-    if (digits.length < 12) return null; // need at least 12 digits for 5x2 + 2
+    let digits = text.replace(/\D/g, '');
+    if (digits.length < 12) return null;
 
-    for (let i = 0; i <= digits.length - 12; i++) {
-      const whiteBalls = [
-        parseInt(digits.substring(i, i + 2), 10),
-        parseInt(digits.substring(i + 2, i + 4), 10),
-        parseInt(digits.substring(i + 4, i + 6), 10),
-        parseInt(digits.substring(i + 6, i + 8), 10),
-        parseInt(digits.substring(i + 8, i + 10), 10),
-      ];
-      const powerball = parseInt(digits.substring(i + 10, i + 12), 10);
+    const len = digits.length;
+    const pbLen = len % 2 === 1 ? 1 : 2; // If odd length, last is 1-digit powerball
+    const wbDigits = len - pbLen;
+    if (wbDigits % 2 !== 0) return null; // White balls must have even digits
 
-      if (this.isValidPowerballSet(whiteBalls, powerball)) {
-        return { whiteBalls, powerball };
-      }
+    const numWhite = wbDigits / 2;
+    if (numWhite !== 5) return null; // Exactly 5 white balls
+
+    const whiteBalls = [];
+    let index = 0;
+    for (let i = 0; i < 5; i++) {
+      whiteBalls.push(parseInt(digits.substring(index, index + 2), 10));
+      index += 2;
+    }
+    const powerball = parseInt(digits.substring(index), 10);
+
+    if (this.isValidPowerballSet(whiteBalls, powerball)) {
+      return { whiteBalls, powerball };
     }
     return null;
   }
