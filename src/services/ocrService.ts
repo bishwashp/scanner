@@ -62,11 +62,13 @@ export class OCRService {
       const rawText = data.text;
       
       console.log('OCR Raw Text:', rawText);
+      console.log('OCR Confidence:', data.confidence);
       
       // Extract Powerball numbers from OCR text
       const numbers = this.parsePowerballNumbers(rawText);
       
       console.log('Extracted Numbers:', numbers);
+      console.log('Number of patterns found:', numbers.length);
       
       return {
         numbers,
@@ -183,11 +185,24 @@ export class OCRService {
 
     // If no patterns found, try to extract individual numbers from each line
     if (results.length === 0) {
+      console.log('No patterns matched, trying individual number extraction...');
       for (const line of lines) {
+        console.log('Processing line:', line);
         const numbers = this.extractIndividualNumbers(line);
         if (numbers.length > 0) {
+          console.log('Found numbers in line:', numbers);
           results.push(...numbers);
         }
+      }
+    }
+    
+    // If still no results, try a more lenient approach
+    if (results.length === 0) {
+      console.log('Still no results, trying lenient extraction...');
+      const allNumbers = this.extractAllNumbersFromText(text);
+      if (allNumbers.length > 0) {
+        console.log('Found numbers with lenient approach:', allNumbers);
+        results.push(...allNumbers);
       }
     }
 
@@ -213,6 +228,28 @@ export class OCRService {
     
     // Group numbers into sets of 6 (5 white + 1 powerball)
     for (let i = 0; i < numbers.length - 5; i += 6) {
+      const whiteBalls = numbers.slice(i, i + 5);
+      const powerball = numbers[i + 5];
+      
+      if (this.isValidPowerballNumbers(whiteBalls, powerball)) {
+        results.push({ whiteBalls, powerball });
+      }
+    }
+
+    return results;
+  }
+
+  private extractAllNumbersFromText(text: string): PowerballNumbers[] {
+    const results: PowerballNumbers[] = [];
+    
+    // Find all numbers in the entire text
+    const numberMatches = text.match(/\d{1,2}/g);
+    if (!numberMatches || numberMatches.length < 6) return results;
+
+    const numbers = numberMatches.map(n => parseInt(n));
+    
+    // Try different groupings - look for 6 consecutive numbers
+    for (let i = 0; i <= numbers.length - 6; i++) {
       const whiteBalls = numbers.slice(i, i + 5);
       const powerball = numbers[i + 5];
       
