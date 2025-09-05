@@ -48,45 +48,50 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
       setStream(mediaStream);
       setHasPermission(true);
       
-      if (videoRef.current) {
-        const video = videoRef.current;
-        video.srcObject = mediaStream;
-        
-        console.log('Setting video srcObject:', mediaStream);
-        console.log('Video element:', video);
-        
-        // Add multiple event listeners to ensure we catch when video is ready
-        const handleVideoReady = () => {
-          console.log('Video metadata loaded, camera ready');
-          console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-          setIsInitializing(false);
-        };
-        
-        const handleVideoError = (e: any) => {
-          console.error('Video error:', e);
-          setError('Video playback error');
-          setIsInitializing(false);
-        };
-        
-        video.onloadedmetadata = handleVideoReady;
-        video.oncanplay = handleVideoReady;
-        video.onerror = handleVideoError;
-        
-        // Force play the video
-        video.play().catch((err) => {
-          console.error('Video play error:', err);
-        });
-        
-        // Fallback timeout in case events don't fire
-        setTimeout(() => {
-          console.log('Camera initialization timeout, proceeding anyway');
-          setIsInitializing(false);
-        }, 3000);
-      } else {
-        console.error('Video ref is null');
-        setError('Video element not found');
-        setIsInitializing(false);
-      }
+      // Wait for video element to be available
+      const setupVideo = () => {
+        if (videoRef.current) {
+          const video = videoRef.current;
+          video.srcObject = mediaStream;
+          
+          console.log('Setting video srcObject:', mediaStream);
+          console.log('Video element:', video);
+          
+          // Add multiple event listeners to ensure we catch when video is ready
+          const handleVideoReady = () => {
+            console.log('Video metadata loaded, camera ready');
+            console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+            setIsInitializing(false);
+          };
+          
+          const handleVideoError = (e: any) => {
+            console.error('Video error:', e);
+            setError('Video playback error');
+            setIsInitializing(false);
+          };
+          
+          video.onloadedmetadata = handleVideoReady;
+          video.oncanplay = handleVideoReady;
+          video.onerror = handleVideoError;
+          
+          // Force play the video
+          video.play().catch((err) => {
+            console.error('Video play error:', err);
+          });
+          
+          // Fallback timeout in case events don't fire
+          setTimeout(() => {
+            console.log('Camera initialization timeout, proceeding anyway');
+            setIsInitializing(false);
+          }, 3000);
+        } else {
+          console.log('Video ref not ready yet, retrying...');
+          // Retry after a short delay
+          setTimeout(setupVideo, 100);
+        }
+      };
+      
+      setupVideo();
     } catch (err) {
       console.error('Camera access denied:', err);
       setError('Camera access is required to scan tickets. Please allow camera permission.');
