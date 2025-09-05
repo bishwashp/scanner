@@ -138,8 +138,12 @@ export class OCRService {
     
     // Common patterns for Powerball numbers
     const patterns = [
+      // Pattern: A 2030 37 55 (OCR artifact - missing dot and merged numbers)
+      /[A-E]\s+(\d{2})(\d{2})\s+(\d{1,2})\s+(\d{1,2})/g,
       // Pattern: A. 20 30 37 55 61 21 (your exact format)
       /[A-E]\.\s*(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})/g,
+      // Pattern: . B. 0519 36 49 (OCR artifact with dot)
+      /\.\s*[A-E]\.\s*(\d{2})(\d{2})\s+(\d{1,2})\s+(\d{1,2})/g,
       // Pattern: 12 23 34 45 56 + 7
       /(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s*\+\s*(\d{1,2})/g,
       // Pattern: 12-23-34-45-56 + 7
@@ -242,11 +246,23 @@ export class OCRService {
   private extractAllNumbersFromText(text: string): PowerballNumbers[] {
     const results: PowerballNumbers[] = [];
     
-    // Find all numbers in the entire text
-    const numberMatches = text.match(/\d{1,2}/g);
+    // First, try to fix common OCR issues
+    let cleanedText = text;
+    
+    // Fix merged numbers like "2030" -> "20 30"
+    cleanedText = cleanedText.replace(/(\d{2})(\d{2})/g, '$1 $2');
+    
+    // Fix merged numbers like "0519" -> "05 19" 
+    cleanedText = cleanedText.replace(/(\d{2})(\d{2})/g, '$1 $2');
+    
+    console.log('Cleaned text:', cleanedText);
+    
+    // Find all numbers in the cleaned text
+    const numberMatches = cleanedText.match(/\d{1,2}/g);
     if (!numberMatches || numberMatches.length < 6) return results;
 
     const numbers = numberMatches.map(n => parseInt(n));
+    console.log('All numbers found:', numbers);
     
     // Try different groupings - look for 6 consecutive numbers
     for (let i = 0; i <= numbers.length - 6; i++) {
@@ -254,6 +270,7 @@ export class OCRService {
       const powerball = numbers[i + 5];
       
       if (this.isValidPowerballNumbers(whiteBalls, powerball)) {
+        console.log('Valid number set found:', { whiteBalls, powerball });
         results.push({ whiteBalls, powerball });
       }
     }
