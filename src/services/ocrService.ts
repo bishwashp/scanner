@@ -30,9 +30,9 @@ export class OCRService {
         }
       });
 
-      // Set OCR parameters for better number recognition (only set whitelist after init)
+      // Set OCR parameters for better number recognition
       await this.worker.setParameters({
-        tessedit_char_whitelist: '0123456789+-., ',
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.,+- ',
       });
       
       this.isInitialized = true;
@@ -91,12 +91,13 @@ export class OCRService {
           return;
         }
 
-        // Set canvas size
-        canvas.width = img.width;
-        canvas.height = img.height;
+        // Scale up for better OCR (2x resolution)
+        const scale = 2;
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
 
-        // Draw image
-        ctx.drawImage(img, 0, 0);
+        // Draw image scaled up
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         // Get image data for processing
         const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -107,8 +108,8 @@ export class OCRService {
           // Convert to grayscale
           const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
           
-          // Apply contrast enhancement
-          const enhanced = gray > 128 ? 255 : 0;
+          // Apply more aggressive contrast enhancement
+          const enhanced = gray > 140 ? 255 : 0;
           
           data[i] = enhanced;     // Red
           data[i + 1] = enhanced; // Green
@@ -135,6 +136,8 @@ export class OCRService {
     
     // Common patterns for Powerball numbers
     const patterns = [
+      // Pattern: A. 20 30 37 55 61 21 (your exact format)
+      /[A-E]\.\s*(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})/g,
       // Pattern: 12 23 34 45 56 + 7
       /(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s*\+\s*(\d{1,2})/g,
       // Pattern: 12-23-34-45-56 + 7
