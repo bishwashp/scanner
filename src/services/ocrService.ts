@@ -143,6 +143,12 @@ export class OCRService {
       /(\d{1,2}),(\d{1,2}),(\d{1,2}),(\d{1,2}),(\d{1,2})\s*\+\s*(\d{1,2})/g,
       // Pattern: 12 23 34 45 56 7 (without +)
       /(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})/g,
+      // Pattern: 12 23 34 45 56 QP 7 QP (Texas Lottery format)
+      /(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+QP\s+(\d{1,2})\s+QP/g,
+      // Pattern: 12 23 34 45 56 QP 7 (without second QP)
+      /(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+QP\s+(\d{1,2})/g,
+      // Pattern: A. 12 23 34 45 56 QP 7 QP (with line prefix)
+      /[A-E]\.\s*(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})\s+QP\s+(\d{1,2})\s+QP/g,
     ];
 
     // Process each line separately

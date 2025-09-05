@@ -93,13 +93,21 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
     if (!isOcrReady || !isScanning) return;
 
     const imageData = captureFrameForOCR();
-    if (!imageData) return;
+    if (!imageData) {
+      console.log('No image data captured');
+      return;
+    }
 
     try {
+      console.log('Processing frame for OCR...');
       const result = await ocrService.extractNumbers(imageData);
       
-      if (result.numbers && result.numbers.length > 0 && result.confidence > 0.9) {
-        // Only process high-confidence results (90%+)
+      console.log('OCR Result:', result);
+      console.log('Confidence:', result.confidence);
+      console.log('Raw Text:', result.rawText);
+      
+      if (result.numbers && result.numbers.length > 0 && result.confidence > 0.6) {
+        // Process results with 60%+ confidence (more lenient)
         setCurrentNumbers(prev => {
           const allNumbers = [...prev, ...result.numbers];
           // Remove duplicates based on number combinations
@@ -114,6 +122,7 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
 
         // Update scan progress
         setScanProgress(prev => Math.min(prev + 10, 100));
+        console.log('Numbers detected! Progress:', Math.min(scanProgress + 10, 100));
         
         // Auto-complete if we have detected numbers
         if (result.numbers.length > 0) {
@@ -129,7 +138,10 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
     } catch (error) {
       console.error('Frame processing error:', error);
     }
-  }, [isOcrReady, isScanning, captureFrameForOCR]);
+    
+    // Update progress even if no numbers detected (show scanning is active)
+    setScanProgress(prev => Math.min(prev + 1, 95)); // Cap at 95% until numbers detected
+  }, [isOcrReady, isScanning, captureFrameForOCR, scanProgress]);
 
   const startScanning = useCallback(() => {
     if (!isOcrReady) return;
