@@ -91,7 +91,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [startCamera, stream]);
+  }, [startCamera]);
 
   // Setup video when stream is available
   useEffect(() => {
