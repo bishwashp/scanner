@@ -135,7 +135,74 @@ export class SimpleOCRService {
   private extractPowerballNumbersSimple(text: string): PowerballNumbers[] {
     console.log('Extracting numbers from text:', text);
     
-    // Step 1: Extract ALL numbers from the text
+    // Step 1: Look for lottery number lines (A. B. C. D. E.)
+    const lotteryLines = this.extractLotteryLines(text);
+    console.log('Lottery lines found:', lotteryLines);
+    
+    if (lotteryLines.length === 0) {
+      console.log('No lottery lines found, trying fallback method');
+      return this.fallbackExtraction(text);
+    }
+    
+    // Step 2: Parse each lottery line
+    const results: PowerballNumbers[] = [];
+    for (const line of lotteryLines) {
+      const numbers = this.parseLotteryLine(line);
+      if (numbers) {
+        results.push(numbers);
+      }
+    }
+    
+    console.log('Parsed lottery numbers:', results);
+    return results;
+  }
+
+  private extractLotteryLines(text: string): string[] {
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const lotteryLines: string[] = [];
+    
+    for (const line of lines) {
+      // Look for lines that start with A. B. C. D. E. (with or without dot)
+      if (/^[A-E]\.?\s/.test(line)) {
+        lotteryLines.push(line);
+        console.log('Found lottery line:', line);
+      }
+    }
+    
+    return lotteryLines;
+  }
+
+  private parseLotteryLine(line: string): PowerballNumbers | null {
+    console.log('Parsing lottery line:', line);
+    
+    // Remove the line prefix (A. B. C. etc.)
+    const cleanLine = line.replace(/^[A-E]\.?\s*/, '');
+    console.log('Cleaned line:', cleanLine);
+    
+    // Extract all numbers from the line
+    const numbers = this.extractAllNumbers(cleanLine);
+    console.log('Numbers in line:', numbers);
+    
+    if (numbers.length < 6) {
+      console.log('Not enough numbers in line');
+      return null;
+    }
+    
+    // Take first 6 numbers (5 white balls + 1 powerball)
+    const whiteBalls = numbers.slice(0, 5);
+    const powerball = numbers[5];
+    
+    if (this.isValidPowerballSet(whiteBalls, powerball)) {
+      console.log('Valid lottery line parsed:', { whiteBalls, powerball });
+      return { whiteBalls, powerball };
+    }
+    
+    console.log('Invalid lottery line');
+    return null;
+  }
+
+  private fallbackExtraction(text: string): PowerballNumbers[] {
+    console.log('Using fallback extraction method');
     const allNumbers = this.extractAllNumbers(text);
     console.log('All numbers found:', allNumbers);
     
@@ -144,7 +211,6 @@ export class SimpleOCRService {
       return [];
     }
     
-    // Step 2: Find valid Powerball sequences
     const validSequences = this.findValidPowerballSequences(allNumbers);
     console.log('Valid sequences found:', validSequences);
     
@@ -162,20 +228,21 @@ export class SimpleOCRService {
   private findValidPowerballSequences(numbers: number[]): PowerballNumbers[] {
     const results: PowerballNumbers[] = [];
     
-    // Try every possible 6-number sequence
+    // Look for sequences that are likely lottery numbers (higher numbers, better spacing)
     for (let i = 0; i <= numbers.length - 6; i++) {
       const sequence = numbers.slice(i, i + 6);
       const whiteBalls = sequence.slice(0, 5);
       const powerball = sequence[5];
       
-      if (this.isValidPowerballSet(whiteBalls, powerball)) {
+      if (this.isValidPowerballSet(whiteBalls, powerball) && this.isLikelyLotterySequence(whiteBalls, powerball)) {
         results.push({ whiteBalls, powerball });
-        console.log(`Valid sequence found at position ${i}:`, { whiteBalls, powerball });
+        console.log(`Valid lottery sequence found at position ${i}:`, { whiteBalls, powerball });
       }
     }
     
-    // Remove duplicates
-    return this.removeDuplicateSequences(results);
+    // Remove duplicates and limit to top 5 most likely sequences
+    const unique = this.removeDuplicateSequences(results);
+    return unique.slice(0, 5);
   }
 
   private isValidPowerballSet(whiteBalls: number[], powerball: number): boolean {
@@ -187,6 +254,20 @@ export class SimpleOCRService {
     if (new Set(whiteBalls).size !== 5) return false;
     
     return true;
+  }
+
+  private isLikelyLotterySequence(whiteBalls: number[], _powerball: number): boolean {
+    // Prefer sequences with higher numbers (more typical for lottery)
+    const avgWhiteBall = whiteBalls.reduce((a, b) => a + b, 0) / 5;
+    
+    // Skip sequences with very low numbers (likely from text like "1 IN 292")
+    if (avgWhiteBall < 10) return false;
+    
+    // Prefer sequences where white balls are reasonably distributed
+    const sorted = [...whiteBalls].sort((a, b) => a - b);
+    const hasGoodSpread = sorted[4] - sorted[0] > 10; // At least 10 number spread
+    
+    return hasGoodSpread;
   }
 
   private removeDuplicateSequences(sequences: PowerballNumbers[]): PowerballNumbers[] {
