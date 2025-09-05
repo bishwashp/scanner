@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Camera, RotateCcw, Flashlight, FlashlightOff, Loader2, CheckCircle, Edit3, Send } from 'lucide-react';
+import { Camera, RotateCcw, Flashlight, FlashlightOff, Loader2, CheckCircle, Send } from 'lucide-react';
 import { ocrService } from '../../services/ocrService';
 import type { PowerballNumbers } from '../../types/powerball';
 
@@ -98,8 +98,8 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
     try {
       const result = await ocrService.extractNumbers(imageData);
       
-      if (result.numbers && result.numbers.length > 0) {
-        // Update current numbers with unique sets
+      if (result.numbers && result.numbers.length > 0 && result.confidence > 0.9) {
+        // Only process high-confidence results (90%+)
         setCurrentNumbers(prev => {
           const allNumbers = [...prev, ...result.numbers];
           // Remove duplicates based on number combinations
@@ -113,7 +113,18 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
         });
 
         // Update scan progress
-        setScanProgress(prev => Math.min(prev + 5, 100));
+        setScanProgress(prev => Math.min(prev + 10, 100));
+        
+        // Auto-complete if we have detected numbers
+        if (result.numbers.length > 0) {
+          setTimeout(() => {
+            setScanComplete(true);
+            setIsScanning(false);
+            if (scanIntervalRef.current) {
+              clearInterval(scanIntervalRef.current);
+            }
+          }, 1000); // Wait 1 second after detection
+        }
       }
     } catch (error) {
       console.error('Frame processing error:', error);
@@ -128,8 +139,8 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
     setScanProgress(0);
     setScanComplete(false);
     
-    // Process frames every 500ms
-    scanIntervalRef.current = setInterval(processFrame, 500);
+    // Process frames every 200ms for real-time scanning
+    scanIntervalRef.current = setInterval(processFrame, 200);
   }, [isOcrReady, processFrame]);
 
   const stopScanning = useCallback(() => {
@@ -147,11 +158,6 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
     }
   }, [currentNumbers, onNumbersExtracted]);
 
-  const editNumbers = useCallback(() => {
-    // This will be handled by the parent component
-    // For now, just complete the scan
-    completeScan();
-  }, [completeScan]);
 
   useEffect(() => {
     console.log('DynamicCameraScanner useEffect called');
@@ -178,6 +184,13 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
       const handleVideoReady = () => {
         console.log('Video metadata loaded, camera ready');
         console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+        
+        // Auto-start scanning when camera is ready and OCR is ready
+        if (isOcrReady) {
+          setTimeout(() => {
+            startScanning();
+          }, 500); // Small delay to ensure everything is ready
+        }
       };
       
       const handleVideoError = (e: any) => {
@@ -193,7 +206,7 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
         console.error('Video play error:', err);
       });
     }
-  }, [stream]);
+  }, [stream, isOcrReady, startScanning]);
 
   // Cleanup stream when component unmounts
   useEffect(() => {
@@ -368,24 +381,34 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
           </div>
         )}
 
-        {/* Detected Numbers Display */}
+        {/* Detected Numbers Display with Glide Effect */}
         {currentNumbers.length > 0 && (
           <div className="mb-6">
             <h3 className="text-lg font-semibold mb-3 text-center">Detected Numbers</h3>
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-64 overflow-y-auto">
               {currentNumbers.map((numbers, index) => (
-                <div key={index} className="bg-slate-800 rounded-lg p-4">
+                <div 
+                  key={index} 
+                  className="bg-slate-800 rounded-lg p-4 transform transition-all duration-500 ease-out animate-slide-down"
+                  style={{
+                    animationDelay: `${index * 200}ms`,
+                    animationFillMode: 'both'
+                  }}
+                >
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-slate-400">Line {index + 1}</span>
-                    <CheckCircle className="w-5 h-5 text-green-400" />
+                    <CheckCircle className="w-5 h-5 text-green-400 animate-pulse" />
                   </div>
                   <div className="flex items-center justify-center space-x-2">
                     {numbers.whiteBalls.map((ball, ballIndex) => (
-                      <div key={ballIndex} className="w-8 h-8 bg-white text-black rounded-full flex items-center justify-center font-bold text-sm">
+                      <div 
+                        key={ballIndex} 
+                        className="w-8 h-8 bg-white text-black rounded-full flex items-center justify-center font-bold text-sm transform transition-all duration-300 hover:scale-110"
+                      >
                         {ball}
                       </div>
                     ))}
-                    <div className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                    <div className="w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center font-bold text-sm transform transition-all duration-300 hover:scale-110">
                       {numbers.powerball}
                     </div>
                   </div>
@@ -425,10 +448,15 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
           {scanComplete && (
             <>
               <button
-                onClick={editNumbers}
+                onClick={() => {
+                  setScanComplete(false);
+                  setCurrentNumbers([]);
+                  setScanProgress(0);
+                  startScanning();
+                }}
                 className="w-16 h-16 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center transition-colors"
               >
-                <Edit3 className="w-8 h-8 text-white" />
+                <RotateCcw className="w-8 h-8 text-white" />
               </button>
               <button
                 onClick={completeScan}

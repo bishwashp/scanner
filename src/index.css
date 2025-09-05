@@ -88,6 +88,10 @@
   .animate-glow {
     animation: glow 2s ease-in-out infinite alternate;
   }
+  
+  .animate-slide-down {
+    animation: slideDown 0.5s ease-out;
+  }
 }
 
 @keyframes float {
@@ -105,5 +109,16 @@
   }
   to {
     box-shadow: 0 0 30px rgba(139, 92, 246, 0.6), 0 0 40px rgba(139, 92, 246, 0.3);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
