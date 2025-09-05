@@ -1,4 +1,4 @@
-# 🎯 Powerball Scanner
+# 🎯 Scanner
 
 A beautiful, mobile-first web application that scans Powerball tickets using your iPhone's camera and instantly checks if you're a winner!
 
