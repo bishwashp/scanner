@@ -69,13 +69,13 @@ export class SimpleOCRService {
         console.log('Word-box extraction results:', numbers);
       }
       
-      // 2) Fallback to text-based extraction
+      // 2) Fallback to text-based extraction if word-box fails
       if (numbers.length === 0) {
-        console.log('Word-box extraction failed, falling back to text-based method.');
+        console.log('Word-box extraction failed or yielded no results, falling back to text-based method.');
         numbers = this.extractPowerballNumbersSimple(rawText);
       }
       
-      console.log('Extracted Numbers:', numbers);
+      console.log('Final Extracted Numbers:', numbers);
       
       return {
         numbers,
@@ -95,7 +95,7 @@ export class SimpleOCRService {
       for (const w of words) {
         const b = (w as any).bbox || {};
         const yc = (b.y0 + b.y1) / 2;
-        const rowKey = String(Math.round(yc / 20)); // coarse bucket
+        const rowKey = String(Math.round(yc / 25)); // Slightly larger bucket size
         if (!rows[rowKey]) rows[rowKey] = [];
         rows[rowKey].push(w);
       }
@@ -108,14 +108,14 @@ export class SimpleOCRService {
         const text = row.map((w: any) => (w.text || '').toString()).join(' ').trim();
         if (!text) continue;
         
-        // Skip obvious headers/footers
-        if (/power\s*play|powerball|education|thanks|draw|cash value|mon\s|printed/i.test(text)) continue;
+        // Skip obvious headers/footers more aggressively
+        if (/power\s*play|powerball|education|thanks|draw|cash value|mon\s|printed|odds|supporting|veterans/i.test(text)) continue;
         candidateLines.push(text);
       }
       console.log('Candidate lines from word boxes:', candidateLines);
 
-      // Prefer lines that contain A./B./C./D./E. markers near the start
-      const prioritized = candidateLines.filter(t => /(^|\s)[A-E](\.|\s)/.test(t));
+      // Prioritize lines that start with A-E markers, even with OCR noise
+      const prioritized = candidateLines.filter(t => /^.{0,3}[A-E]/.test(t));
       const linesToTry = prioritized.length > 0 ? prioritized : candidateLines;
       console.log('Prioritized lines to try:', linesToTry);
 
@@ -241,7 +241,7 @@ export class SimpleOCRService {
     console.log('Fixed merged numbers:', cleanLine);
     
     // Extract all numbers from the line
-    let numbers = this.extractAllNumbers(cleanLine).filter(n => n > 0); // Filter out 0
+    let numbers = this.extractAllNumbers(cleanLine).filter(n => n > 0 && n < 70); // Filter out 0s and invalid numbers
     console.log('Numbers in line (filtered):', numbers);
     
     if (numbers.length < 6) {
@@ -276,6 +276,9 @@ export class SimpleOCRService {
   private fixMergedNumbers(text: string): string {
     let fixed = text;
     
+    // General purpose replacements for common OCR errors
+    fixed = fixed.replace(/l/g, '1').replace(/O/g, '0').replace(/S/g, '5');
+
     // Fix patterns like "203037561" -> "20 30 37 55 61"
     fixed = fixed.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{1})/g, '$1 $2 $3 $4 $5');
     
@@ -293,6 +296,9 @@ export class SimpleOCRService {
     
     // Fix patterns like "465" -> "46 5"
     fixed = fixed.replace(/(\d{2})(\d{1})/g, '$1 $2');
+
+    // Re-run 2-digit fix in case the above created new pairs
+    fixed = fixed.replace(/(\d{2})(\d{2})/g, '$1 $2');
     
     return fixed;
   }
@@ -312,10 +318,13 @@ export class SimpleOCRService {
     const whiteBalls = [];
     let index = 0;
     for (let i = 0; i < 5; i++) {
-      whiteBalls.push(parseInt(digits.substring(index, index + 2), 10));
+      const ball = parseInt(digits.substring(index, index + 2), 10);
+      if (ball === 0) return null; // Zero is not a valid ball number
+      whiteBalls.push(ball);
       index += 2;
     }
     const powerball = parseInt(digits.substring(index), 10);
+    if (powerball === 0) return null; // Zero is not a valid powerball number
 
     if (this.isValidPowerballSet(whiteBalls, powerball)) {
       return { whiteBalls, powerball };
