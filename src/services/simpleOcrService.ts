@@ -172,8 +172,8 @@ export class SimpleOCRService {
     const lotteryLines: string[] = [];
     
     for (const line of lines) {
-      // Look for lines that start with A. B. C. D. E. (with or without dot, with or without extra characters)
-      if (/^[A-E]\.?\s/.test(line) || /^[A-E]\s/.test(line) || /^-\s*[A-E]\.?\s/.test(line)) {
+      // Look for lines that likely contain A-E markers near the start
+      if (/^.{0,3}[A-E]\.?\s/.test(line) || /^[\d\.\-\+]\s*[A-E]\.?\s/.test(line)) {
         lotteryLines.push(line);
         console.log('Found lottery line:', line);
       }
@@ -185,14 +185,11 @@ export class SimpleOCRService {
   private parseLotteryLine(line: string): PowerballNumbers | null {
     console.log('Parsing lottery line:', line);
     
-    // Remove the line prefix (A. B. C. etc.) and any extra characters
-    let cleanLine = line
-      .replace(/^\+\s*[A-E]\.?\s*/, '')  // "+ B." style
-      .replace(/^\-\s*[A-E]\.?\s*/, '')  // "- A." style
-      .replace(/^[A-E]\.?\s*/, '');       // "A." or "A " style
+    // Remove any prefix before the numbers
+    let cleanLine = line.replace(/^[^0-9]+/, '').trim();
     console.log('Cleaned line:', cleanLine);
     
-    // Fix merged numbers (like "203037561" -> "20 30 37 55 61")
+    // Fix merged numbers
     cleanLine = this.fixMergedNumbers(cleanLine);
     console.log('Fixed merged numbers:', cleanLine);
     
@@ -219,7 +216,7 @@ export class SimpleOCRService {
       return { whiteBalls, powerball };
     }
     
-    // If the first 6 tokens didn't validate, try digits-only segmentation as fallback
+    // Fallback to digits-only segmentation
     const segmented = this.segmentFromDigitsOnly(cleanLine);
     if (segmented) {
       console.log('Recovered via digits-only segmentation:', segmented);
@@ -244,6 +241,9 @@ export class SimpleOCRService {
     
     // Fix patterns like "0820" -> "08 20"
     fixed = fixed.replace(/(\d{2})(\d{2})/g, '$1 $2');
+    
+    // Fix patterns like "5561" -> "55 61"
+    fixed = fixed.replace(/(\d{2})(\d{1})/g, '$1 $2');
     
     return fixed;
   }
