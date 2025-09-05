@@ -1,5 +1,6 @@
 import type { OCRResult } from '../types/powerball';
-import { ocrSelectorService, OCREngineType } from './ocrSelectorService';
+import { ocrSelectorService } from './ocrSelectorService';
+import type { OCREngineType } from './ocrSelectorService';
 
 /**
  * Main OCR Service that uses either Tesseract or PaddleOCR via the OCR Selector Service

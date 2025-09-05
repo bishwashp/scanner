@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ocrService } from '../../services/ocrService';
-import { OCREngineType } from '../../services/ocrSelectorService';
+import type { OCREngineType } from '../../services/ocrSelectorService';
 
 /**
  * OCREngineSelector component
  * Allows users to switch between different OCR engines
  */
 const OCREngineSelector: React.FC = () => {
-  const [selectedEngine, setSelectedEngine] = useState<OCREngineType>(OCREngineType.Tesseract);
+  const [selectedEngine, setSelectedEngine] = useState<OCREngineType>('tesseract');
 
   // Initialize the selected engine from the service
   useEffect(() => {
@@ -40,12 +40,12 @@ const OCREngineSelector: React.FC = () => {
           value={selectedEngine}
           onChange={handleEngineChange}
         >
-          <option value={OCREngineType.Tesseract}>Tesseract (Default)</option>
-          <option value={OCREngineType.PaddleOCR}>PaddleOCR (Experimental)</option>
+          <option value="tesseract">Tesseract (Default)</option>
+          <option value="paddleocr">PaddleOCR (Experimental)</option>
         </select>
         
         <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-          {selectedEngine === OCREngineType.Tesseract ? (
+          {selectedEngine === 'tesseract' ? (
             <p>Tesseract is the default OCR engine, stable but may have lower accuracy.</p>
           ) : (
             <p>PaddleOCR is experimental but may provide better accuracy for lottery tickets.</p>
