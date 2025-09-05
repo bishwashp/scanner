@@ -2,20 +2,8 @@ import type { OCRResult } from '../types/powerball';
 import { simpleOcrService } from './simpleOcrService';
 import { paddleOcrService } from './paddleOcrService';
 
-<<<<<<< Updated upstream
-/**
- * OCR Engine Type
- */
-export const OCREngineType = {
-  Tesseract: 'tesseract',
-  PaddleOCR: 'paddleocr'
-} as const;
-
-export type OCREngineType = typeof OCREngineType[keyof typeof OCREngineType];
-=======
 // Simple string literals for engine types
 export type OCREngineType = 'tesseract' | 'paddleocr';
->>>>>>> Stashed changes
 
 /**
  * OCR Selector Service for switching between OCR engines

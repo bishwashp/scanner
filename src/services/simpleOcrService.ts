@@ -1,7 +1,6 @@
 import { createWorker } from 'tesseract.js';
 import type { Worker } from 'tesseract.js';
 import type { OCRResult, PowerballNumbers } from '../types/powerball';
-## Random comment
 export class SimpleOCRService {
   private static instance: SimpleOCRService;
   private worker: Worker | null = null;
