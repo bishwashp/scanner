@@ -30,10 +30,9 @@ export class OCRService {
         }
       });
 
-      // Set OCR parameters for better number recognition
+      // Set OCR parameters for better number recognition (only set whitelist after init)
       await this.worker.setParameters({
         tessedit_char_whitelist: '0123456789+-., ',
-        tessedit_ocr_engine_mode: 2, // LSTM OCR Engine only
       });
       
       this.isInitialized = true;

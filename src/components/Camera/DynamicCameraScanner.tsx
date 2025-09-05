@@ -32,6 +32,7 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
 
   const startCamera = useCallback(async () => {
     try {
+      console.log('Starting camera initialization...');
       setIsInitializing(true);
       setError(null);
       
@@ -43,6 +44,7 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
         }
       });
       
+      console.log('Got media stream:', mediaStream);
       setStream(mediaStream);
       setHasPermission(true);
       
@@ -80,6 +82,10 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
           console.log('Camera initialization timeout, proceeding anyway');
           setIsInitializing(false);
         }, 3000);
+      } else {
+        console.error('Video ref is null');
+        setError('Video element not found');
+        setIsInitializing(false);
       }
     } catch (err) {
       console.error('Camera access denied:', err);
@@ -184,6 +190,7 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
   }, [completeScan]);
 
   useEffect(() => {
+    console.log('DynamicCameraScanner useEffect called');
     startCamera();
     initializeOCR();
     
@@ -226,6 +233,7 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
   }
 
   if (!hasPermission || isInitializing || !isOcrReady) {
+    console.log('Loading state - hasPermission:', hasPermission, 'isInitializing:', isInitializing, 'isOcrReady:', isOcrReady);
     return (
       <div className="max-w-md mx-auto text-center">
         <div className="card">
@@ -238,6 +246,9 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
              !isOcrReady ? 'Loading OCR engine...' : 
              'Please allow camera access to continue...'}
           </p>
+          <div className="text-xs text-slate-500 mt-2">
+            Debug: hasPermission={hasPermission.toString()}, isInitializing={isInitializing.toString()}, isOcrReady={isOcrReady.toString()}
+          </div>
         </div>
       </div>
     );
