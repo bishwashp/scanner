@@ -86,7 +86,12 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
           }, 3000);
         } else {
           console.log('Video ref not ready yet, retrying...');
-          // Retry after a short delay
+          // Check if video element exists in DOM
+          const videoElement = document.querySelector('video');
+          console.log('Video element in DOM:', videoElement);
+          console.log('Video ref current:', videoRef.current);
+          
+          // Retry after a short delay, but limit retries
           setTimeout(setupVideo, 100);
         }
       };
@@ -237,7 +242,7 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
     );
   }
 
-  if (!hasPermission || isInitializing || !isOcrReady) {
+  if (!hasPermission || isInitializing) {
     console.log('Loading state - hasPermission:', hasPermission, 'isInitializing:', isInitializing, 'isOcrReady:', isOcrReady);
     return (
       <div className="max-w-md mx-auto text-center">
@@ -248,7 +253,6 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
           <h2 className="text-xl font-semibold mb-4">Initializing Scanner</h2>
           <p className="text-slate-400">
             {isInitializing ? 'Starting camera...' : 
-             !isOcrReady ? 'Loading OCR engine...' : 
              'Please allow camera access to continue...'}
           </p>
           <div className="text-xs text-slate-500 mt-2">
@@ -269,6 +273,11 @@ const DynamicCameraScanner: React.FC<DynamicCameraScannerProps> = ({
              scanComplete ? 'Scanning complete! Review your numbers below' :
              'Scanning in progress... Keep the ticket steady'}
           </p>
+          {!isOcrReady && (
+            <div className="mt-2 p-2 bg-yellow-500/20 border border-yellow-500/30 rounded text-yellow-300 text-sm">
+              ⚠️ OCR engine still loading... Camera ready but scanning may be delayed
+            </div>
+          )}
         </div>
 
         {/* Camera Preview */}
