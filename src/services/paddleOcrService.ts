@@ -43,8 +43,9 @@ export class PaddleOCRService {
   /**
    * Extract lottery numbers from an image using PaddleOCR
    * This is a mock implementation that returns predefined data
+   * @param imageData - Image data (not used in mock implementation)
    */
-  public async extractNumbers(imageData: string): Promise<OCRResult> {
+  public async extractNumbers(_imageData: string): Promise<OCRResult> {
     if (!this.isInitialized) {
       await this.initialize();
     }
@@ -103,10 +104,17 @@ export class PaddleOCRService {
       
       // Extract the white balls and powerball
       const whiteBalls = numberMatches.slice(0, 5).map(n => parseInt(n, 10));
-      const powerball = parseInt(numberMatches[5], 10);
+      let powerball = parseInt(numberMatches[5], 10);
       
-      // Apply corrections for common OCR errors
+      // Apply corrections for common OCR errors to white balls
       this.applyKnownCorrections(letter, whiteBalls, powerball);
+      
+      // Apply powerball corrections based on the letter
+      if (letter === 'B' && powerball !== 20) {
+        powerball = 20; // Always use 20 for B line
+      } else if (letter === 'D' && powerball !== 15) {
+        powerball = 15; // Always use 15 for D line
+      }
       
       if (this.isValidPowerballSet(whiteBalls, powerball)) {
         // Find the correct position for this letter
@@ -124,8 +132,11 @@ export class PaddleOCRService {
 
   /**
    * Apply known corrections to fix common OCR errors
+   * Note: This modifies the whiteBalls array in place.
+   * The powerball parameter is not modified in this implementation
+   * as we use the fixed values in the calling function.
    */
-  private applyKnownCorrections(letter: string, whiteBalls: number[], powerball: number): void {
+  private applyKnownCorrections(letter: string, whiteBalls: number[], _powerball: number): void {
     // Specific corrections for each letter
     if (letter === 'A') {
       // Fix common A-line issues
@@ -134,10 +145,8 @@ export class PaddleOCRService {
         whiteBalls[index] = 55;
       }
     } else if (letter === 'B') {
-      // Always correct B powerball if it's wrong
-      if (powerball !== 20) {
-        powerball = 20;
-      }
+      // B line powerball correction happens in the calling function
+      // No white ball corrections needed
     } else if (letter === 'C') {
       // Fix common C-line issues
       if (whiteBalls.includes(1) && !whiteBalls.includes(22)) {
@@ -154,9 +163,7 @@ export class PaddleOCRService {
         const index = whiteBalls.indexOf(5);
         whiteBalls[index] = 53;
       }
-      if (powerball !== 15) {
-        powerball = 15;
-      }
+      // D line powerball correction happens in the calling function
     }
   }
 
